@@ -63,10 +63,12 @@ import com.callguard.whitelist.ui.theme.WarnAmber
 fun HomeScreen(
     onOpenHistory: () -> Unit,
     onOpenWhitelist: () -> Unit,
+    onOpenBlocked: () -> Unit,
     showMessage: (String) -> Unit,
 ) {
     val vm = appViewModel { HomeViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val blockedNumbers by vm.blockedNumbers.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var roleHeld by remember { mutableStateOf(RoleHelper.isHeld(context)) }
@@ -144,6 +146,10 @@ fun HomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatCard("Números permitidos", state.allowedCount, SafeGreen, Modifier.weight(1f), onOpenWhitelist)
                 StatCard("Chamadas bloqueadas", state.blockedCount, DangerRed, Modifier.weight(1f), onOpenHistory)
+            }
+
+            OutlinedButton(onClick = onOpenBlocked, modifier = Modifier.fillMaxWidth()) {
+                Text("Números bloqueados ($blockedNumbers)")
             }
 
             FilledTonalButton(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth()) {

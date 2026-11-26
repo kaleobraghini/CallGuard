@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import com.callguard.whitelist.core.CallDecisionEngine
 import com.callguard.whitelist.data.AppDatabase
+import com.callguard.whitelist.data.BlocklistIndex
+import com.callguard.whitelist.data.BlocklistRepository
 import com.callguard.whitelist.data.BackupManager
 import com.callguard.whitelist.data.ContactsReader
 import com.callguard.whitelist.data.HistoryRepository
@@ -26,7 +28,9 @@ class AppContainer(context: Context) {
     val database: AppDatabase by lazy { AppDatabase.create(appContext) }
     val settings: SettingsRepository by lazy { SettingsRepository(appContext) }
     val whitelistIndex: WhitelistIndex by lazy { WhitelistIndex(database) }
-    val engine: CallDecisionEngine by lazy { CallDecisionEngine(whitelistIndex) }
+    val blocklistIndex: BlocklistIndex by lazy { BlocklistIndex(database) }
+    val blocklist: BlocklistRepository by lazy { BlocklistRepository(database, settings) }
+    val engine: CallDecisionEngine by lazy { CallDecisionEngine(whitelistIndex, blocklist = blocklistIndex) }
     val whitelist: WhitelistRepository by lazy { WhitelistRepository(database, settings) }
     val history: HistoryRepository by lazy { HistoryRepository(database) }
     val backup: BackupManager by lazy { BackupManager(appContext, database, whitelist) }

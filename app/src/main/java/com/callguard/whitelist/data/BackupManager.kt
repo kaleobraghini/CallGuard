@@ -29,6 +29,9 @@ class BackupManager(
             put("categories", JSONArray().apply {
                 categories.forEach { c -> put(JSONObject().put("name", c.name).put("color", c.color)) }
             })
+            put("blocked", JSONArray().apply {
+                db.blockedDao().getAll().forEach { b -> put(JSONObject().put("number", b.number).put("normalized", b.normalized).put("auto", b.auto).put("createdAt", b.createdAt)) }
+            })
             put("entries", JSONArray().apply {
                 entries.forEach { e ->
                     put(JSONObject().apply {
@@ -76,7 +79,17 @@ class BackupManager(
                 )
             }
         }
-        repository.importAll(candidates)
+        val result = repository.importAll(candidates)
+        root.optJSONArray("blocked")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val b = arr.getJSONObject(i)
+                val key = b.optString("normalized")
+                if (key.isNotEmpty() && db.whitelistDao().findByNormalized(key) == null) {
+                    db.blockedDao().insert(BlockedNumber(key, b.optString("number", key), b.optLong("createdAt", System.currentTimeMillis()), b.optBoolean("auto")))
+                }
+            }
+        }
+        result
     }
 
     companion object {

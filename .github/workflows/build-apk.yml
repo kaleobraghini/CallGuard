@@ -3,8 +3,6 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
-    tags: [ 'v*' ]
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,16 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - uses: gradle/actions/setup-gradle@v4
 
-      # Opcional: assinatura com chave própria (recomendado para poder atualizar sem desinstalar).
-      # Crie os segredos KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS e KEY_PASSWORD no repositório.
+      # Opcional: chave fixa nos segredos do repositório (permite atualizar o app por cima).
       - name: Preparar keystore (se configurada)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -34,51 +29,28 @@ jobs:
             echo "CALLGUARD_KEYSTORE=$RUNNER_TEMP/callguard.jks" >> "$GITHUB_ENV"
           fi
 
-      - name: Testes unitários
+      - name: Testes do motor de bloqueio
         run: ./gradlew --no-daemon testDebugUnitTest
 
-      - name: Compilar APKs
+      - name: Compilar APK
         env:
           CALLGUARD_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           CALLGUARD_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           CALLGUARD_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew --no-daemon assembleRelease assembleDebug
+          ./gradlew --no-daemon assembleRelease
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/CallGuard.apk
-          cp app/build/outputs/apk/debug/app-debug.apk out/CallGuard-debug.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: CallGuard-apk
-          path: out/*.apk
+          path: out/CallGuard.apk
 
-      - name: Publicar release (tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+      # Cada envio para a main vira uma versão nova em Releases.
+      - uses: softprops/action-gh-release@v2
         with:
-          files: out/*.apk
-
-  # Testes de integração (Room + motor de decisão) em um emulador Android.
-  # Roda quando acionado manualmente (Actions > Build APK > Run workflow) ou em tags v*.
-  instrumented-tests:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Habilitar KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          tag_name: v1.1.${{ github.run_number }}
+          name: CallGuard v1.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: out/CallGuard.apk

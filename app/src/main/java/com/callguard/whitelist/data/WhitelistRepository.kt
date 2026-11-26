@@ -36,6 +36,7 @@ class WhitelistRepository(
     suspend fun add(number: String, name: String?, categoryId: Long?, notes: String?): SaveResult {
         val key = normalize(number) ?: return SaveResult.InvalidNumber
         dao.findByNormalized(key)?.let { return SaveResult.Duplicate(it) }
+        db.blockedDao().delete(key) // autorizar desbloqueia
         return try {
             dao.insert(
                 WhitelistEntry(

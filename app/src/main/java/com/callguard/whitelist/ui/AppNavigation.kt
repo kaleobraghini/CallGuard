@@ -45,6 +45,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 }
 
 private const val ROUTE_IMPORT = "import_contacts"
+private const val ROUTE_BLOCKED = "blocked"
 
 private fun NavController.openTab(route: String) {
     navigate(route) {
@@ -78,7 +79,7 @@ fun AppRoot(openRequest: String?, onOpenHandled: () -> Unit) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            if (currentRoute != ROUTE_IMPORT) {
+            if (currentRoute != ROUTE_IMPORT && currentRoute != ROUTE_BLOCKED) {
                 NavigationBar {
                     Tab.entries.forEach { tab ->
                         NavigationBarItem(
@@ -101,6 +102,7 @@ fun AppRoot(openRequest: String?, onOpenHandled: () -> Unit) {
                 HomeScreen(
                     onOpenHistory = { nav.openTab(Tab.HISTORY.route) },
                     onOpenWhitelist = { nav.openTab(Tab.WHITELIST.route) },
+                    onOpenBlocked = { nav.navigate(ROUTE_BLOCKED) },
                     showMessage = showMessage,
                 )
             }
@@ -109,6 +111,9 @@ fun AppRoot(openRequest: String?, onOpenHandled: () -> Unit) {
             composable(Tab.CATEGORIES.route) { CategoriesScreen(showMessage) }
             composable(Tab.SETTINGS.route) {
                 SettingsScreen(onImportContacts = { nav.navigate(ROUTE_IMPORT) }, showMessage = showMessage)
+            }
+            composable(ROUTE_BLOCKED) {
+                com.callguard.whitelist.ui.screens.BlockedScreen(onBack = { nav.popBackStack() }, showMessage = showMessage)
             }
             composable(ROUTE_IMPORT) {
                 ContactImportScreen(onBack = { nav.popBackStack() }, showMessage = showMessage)

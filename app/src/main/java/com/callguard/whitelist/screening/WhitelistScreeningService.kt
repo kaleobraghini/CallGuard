@@ -74,6 +74,9 @@ class WhitelistScreeningService : CallScreeningService() {
                         )
                     )
                 }
+                if (blocked && s.autoBlock && result.reason == DecisionReason.NOT_WHITELISTED) {
+                    result.normalized?.let { container.blocklist.block(rawNumber ?: it, auto = true) }
+                }
                 if (blocked && s.notifyOnBlock) {
                     container.notifier.notifyBlocked(result.normalized, receivedAt)
                 }

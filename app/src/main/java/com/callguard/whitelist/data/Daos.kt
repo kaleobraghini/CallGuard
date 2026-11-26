@@ -97,3 +97,24 @@ interface CallEventDao {
     @Query("DELETE FROM call_events WHERE id NOT IN (SELECT id FROM call_events ORDER BY timestamp DESC LIMIT :keep)")
     suspend fun prune(keep: Int)
 }
+
+@Dao
+interface BlockedDao {
+    @Query("SELECT normalized FROM blocked")
+    suspend fun allNormalized(): List<String>
+
+    @Query("SELECT * FROM blocked ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<BlockedNumber>>
+
+    @Query("SELECT * FROM blocked")
+    suspend fun getAll(): List<BlockedNumber>
+
+    @Query("SELECT COUNT(*) FROM blocked")
+    fun observeCount(): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(b: BlockedNumber): Long
+
+    @Query("DELETE FROM blocked WHERE normalized = :normalized")
+    suspend fun delete(normalized: String)
+}

@@ -68,3 +68,13 @@ data class CallEvent(
     /** Nome de [com.callguard.whitelist.core.DecisionReason]. */
     val reason: String,
 )
+
+/** Número bloqueado: sempre rejeitado (exceto se estiver na whitelist). */
+@Entity(tableName = "blocked")
+data class BlockedNumber(
+    @PrimaryKey val normalized: String,
+    val number: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    /** true = bloqueado automaticamente pelo app; false = bloqueado por você. */
+    val auto: Boolean = false,
+)

@@ -56,7 +56,22 @@ data class HomeState(
     val blockedCount: Int = 0,
 )
 
+class BlockedViewModel(private val c: AppContainer) : ViewModel() {
+    val items: StateFlow<List<com.callguard.whitelist.data.BlockedNumber>> = c.blocklist.all.toState(this, emptyList())
+    val categories: StateFlow<List<CategoryEntity>> = c.whitelist.categories.toState(this, emptyList())
+
+    fun unblock(key: String) { viewModelScope.launch { c.blocklist.unblock(key) } }
+
+    suspend fun addToWhitelist(number: String, name: String?, categoryId: Long?, notes: String?): String? =
+        c.whitelist.add(number, name, categoryId, notes).errorMessage()
+
+    suspend fun block(number: String): String? =
+        if (c.blocklist.block(number)) null else "Número inválido ou já está na whitelist (tire de lá primeiro)."
+}
+
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
+    val blockedNumbers: StateFlow<Int> = c.blocklist.count.toState(this, 0)
+
     val state: StateFlow<HomeState> = combine(c.settings.settings, c.whitelist.count, c.history.blockedCount) { s, allowed, blocked ->
         HomeState(s.protectionEnabled, allowed, blocked)
     }.toState(this, HomeState())
@@ -144,14 +159,15 @@ class CategoriesViewModel(private val c: AppContainer) : ViewModel() {
 
 enum class HistoryFilter(val label: String) { ALL("Todas"), BLOCKED("Bloqueadas"), ALLOWED("Permitidas") }
 
-data class HistoryRow(val event: CallEvent, val whitelistName: String?, val inWhitelist: Boolean)
+data class HistoryRow(val event: CallEvent, val whitelistName: String?, val inWhitelist: Boolean, val blocked: Boolean = false)
 
 class HistoryViewModel(private val c: AppContainer) : ViewModel() {
     val filter = MutableStateFlow(HistoryFilter.ALL)
     val categories: StateFlow<List<CategoryEntity>> = c.whitelist.categories.toState(this, emptyList())
 
-    val rows: StateFlow<List<HistoryRow>> = combine(c.history.recent, c.whitelist.entries, filter) { events, entries, f ->
+    val rows: StateFlow<List<HistoryRow>> = combine(c.history.recent, c.whitelist.entries, c.blocklist.all, filter) { events, entries, blockedList, f ->
         val byKey = entries.associateBy { it.entry.normalized }
+        val blockedKeys = blockedList.map { it.normalized }.toHashSet()
         events.asSequence()
             .filter {
                 when (f) {
@@ -162,13 +178,21 @@ class HistoryViewModel(private val c: AppContainer) : ViewModel() {
             }
             .map { e ->
                 val match = e.normalized?.let { byKey[it] }
-                HistoryRow(e, match?.entry?.name, match != null)
+                HistoryRow(e, match?.entry?.name, match != null, e.normalized != null && e.normalized in blockedKeys)
             }
             .toList()
     }.toState(this, emptyList())
 
     suspend fun addToWhitelist(number: String, name: String?, categoryId: Long?, notes: String?): String? =
         c.whitelist.add(number, name, categoryId, notes).errorMessage()
+
+    /** Bloqueia ou desbloqueia (botão separado do "adicionar à whitelist"). */
+    fun toggleBlock(row: HistoryRow) {
+        val key = row.event.normalized ?: return
+        viewModelScope.launch {
+            if (row.blocked) c.blocklist.unblock(key) else c.blocklist.block(row.event.rawNumber ?: key)
+        }
+    }
 
     fun clear() {
         viewModelScope.launch { c.history.clear() }
@@ -188,6 +212,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setHiddenPolicy(p: HiddenPolicy) = launch { c.settings.setHiddenPolicy(p) }
     fun setNotify(v: Boolean) = launch { c.settings.setNotifyOnBlock(v) }
     fun setLogAllowed(v: Boolean) = launch { c.settings.setLogAllowed(v) }
+    fun setAutoBlock(v: Boolean) = launch { c.settings.setAutoBlock(v) }
     fun setTheme(m: ThemeMode) = launch { c.settings.setTheme(m) }
     fun setDynamicColor(v: Boolean) = launch { c.settings.setDynamicColor(v) }
 

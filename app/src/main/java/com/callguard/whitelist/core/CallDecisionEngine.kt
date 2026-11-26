@@ -21,6 +21,8 @@ enum class DecisionReason {
     LOOKUP_FAILED_ALLOWED,
     LOOKUP_FAILED_REJECTED,
     SETTINGS_UNAVAILABLE,
+    /** Número na lista de bloqueados (por você ou automaticamente). */
+    BLOCKED,
 }
 
 data class EngineSettings(
@@ -45,6 +47,11 @@ interface WhitelistLookup {
     suspend fun containsAny(keys: Set<String>): Boolean
 }
 
+/** Lista de bloqueados: números sempre rejeitados, mesmo com a proteção desligada. */
+interface BlocklistLookup {
+    suspend fun containsAny(keys: Set<String>): Boolean
+}
+
 /**
  * Motor de decisão. Independente de Android e da interface.
  * O número telefônico é o único critério de autorização.
@@ -52,29 +59,45 @@ interface WhitelistLookup {
 class CallDecisionEngine(
     private val lookup: WhitelistLookup,
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+    private val blocklist: BlocklistLookup? = null,
 ) {
 
     suspend fun decide(rawNumber: String?, numberHidden: Boolean, settings: EngineSettings): DecisionResult {
         val keys = PhoneNormalizer.candidateKeys(rawNumber, settings.normalizer)
         val canonical = keys.firstOrNull()
 
-        if (!settings.protectionEnabled) {
-            return DecisionResult(Decision.ALLOW, DecisionReason.PROTECTION_OFF, canonical)
-        }
-
         // Número oculto/indisponível: não é uma falha de consulta nem um "número não autorizado".
         if (numberHidden || keys.isEmpty()) {
+            if (!settings.protectionEnabled) return DecisionResult(Decision.ALLOW, DecisionReason.PROTECTION_OFF, null)
             return when (settings.hiddenPolicy) {
                 HiddenPolicy.ALLOW -> DecisionResult(Decision.ALLOW, DecisionReason.HIDDEN_ALLOWED, null)
                 HiddenPolicy.REJECT -> DecisionResult(Decision.REJECT, DecisionReason.HIDDEN_REJECTED, null)
             }
         }
 
+        // Bloqueados valem sempre (também com a proteção desligada), a não ser que o número esteja na whitelist.
+        val blocked: Boolean? = try {
+            withTimeoutOrNull(timeoutMs) { blocklist?.containsAny(keys) ?: false }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+
+        if (!settings.protectionEnabled) {
+            if (blocked == true) {
+                val whitelisted = runCatching { withTimeoutOrNull(timeoutMs) { lookup.containsAny(keys) } }.getOrNull() == true
+                if (!whitelisted) return DecisionResult(Decision.REJECT, DecisionReason.BLOCKED, canonical)
+            }
+            return DecisionResult(Decision.ALLOW, DecisionReason.PROTECTION_OFF, canonical)
+        }
+
         val outcome: LookupOutcome = try {
             withTimeoutOrNull(timeoutMs) {
                 when {
-                    lookup.isEmpty() -> LookupOutcome.Empty
+                    lookup.isEmpty() -> if (blocked == true) LookupOutcome.Blocked else LookupOutcome.Empty
                     lookup.containsAny(keys) -> LookupOutcome.Found
+                    blocked == true -> LookupOutcome.Blocked
                     else -> LookupOutcome.NotFound
                 }
             } ?: LookupOutcome.Failed // tempo esgotado
@@ -87,6 +110,7 @@ class CallDecisionEngine(
         return when (outcome) {
             LookupOutcome.Found -> DecisionResult(Decision.ALLOW, DecisionReason.WHITELISTED, canonical)
             LookupOutcome.NotFound -> DecisionResult(Decision.REJECT, DecisionReason.NOT_WHITELISTED, canonical)
+            LookupOutcome.Blocked -> DecisionResult(Decision.REJECT, DecisionReason.BLOCKED, canonical)
             // Whitelist vazia: não bloqueia tudo por acidente.
             LookupOutcome.Empty -> DecisionResult(Decision.ALLOW, DecisionReason.EMPTY_WHITELIST, canonical)
             LookupOutcome.Failed -> when (settings.failurePolicy) {
@@ -96,7 +120,7 @@ class CallDecisionEngine(
         }
     }
 
-    private enum class LookupOutcome { Found, NotFound, Empty, Failed }
+    private enum class LookupOutcome { Found, NotFound, Empty, Blocked, Failed }
 
     companion object {
         /** O Android dá 5 s; respondemos bem antes disso mesmo no pior caso. */

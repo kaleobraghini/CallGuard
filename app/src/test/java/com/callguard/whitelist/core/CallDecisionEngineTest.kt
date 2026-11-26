@@ -96,3 +96,40 @@ class CallDecisionEngineTest {
         assertEquals(DecisionReason.LOOKUP_FAILED_ALLOWED, r.reason)
     }
 }
+
+class BlocklistDecisionTest {
+    private class Set1(private val numbers: Set<String>) : WhitelistLookup, BlocklistLookup {
+        override suspend fun isEmpty() = numbers.isEmpty()
+        override suspend fun containsAny(keys: Set<String>) = keys.any { it in numbers }
+    }
+
+    private val settings = EngineSettings(true, FailurePolicy.ALLOW, HiddenPolicy.REJECT, NormalizerConfig("55", "47"))
+    private val joao = "5547999999999"
+    private val spam = "5511988887777"
+
+    private fun decide(white: Set<String>, black: Set<String>, raw: String, s: EngineSettings = settings) =
+        kotlinx.coroutines.runBlocking { CallDecisionEngine(Set1(white), blocklist = Set1(black)).decide(raw, false, s) }
+
+    @Test fun blockedNumberIsRejected() {
+        val r = decide(setOf(joao), setOf(spam), "+$spam")
+        org.junit.Assert.assertEquals(Decision.REJECT, r.decision)
+        org.junit.Assert.assertEquals(DecisionReason.BLOCKED, r.reason)
+    }
+
+    @Test fun blockedStaysBlockedWithProtectionOff() {
+        val r = decide(setOf(joao), setOf(spam), "+$spam", settings.copy(protectionEnabled = false))
+        org.junit.Assert.assertEquals(DecisionReason.BLOCKED, r.reason)
+        val other = decide(setOf(joao), setOf(spam), "+5521977776666", settings.copy(protectionEnabled = false))
+        org.junit.Assert.assertEquals(DecisionReason.PROTECTION_OFF, other.reason)
+    }
+
+    @Test fun whitelistWinsOverBlocklist() {
+        val r = decide(setOf(joao), setOf(joao), "+$joao")
+        org.junit.Assert.assertEquals(DecisionReason.WHITELISTED, r.reason)
+    }
+
+    @Test fun blockedEvenWithEmptyWhitelist() {
+        org.junit.Assert.assertEquals(DecisionReason.BLOCKED, decide(emptySet(), setOf(spam), "+$spam").reason)
+        org.junit.Assert.assertEquals(DecisionReason.EMPTY_WHITELIST, decide(emptySet(), setOf(spam), "+5521977776666").reason)
+    }
+}

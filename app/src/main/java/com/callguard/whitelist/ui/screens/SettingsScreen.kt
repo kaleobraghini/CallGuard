@@ -255,6 +255,12 @@ fun SettingsScreen(onImportContacts: () -> Unit, showMessage: (String) -> Unit) 
             SectionTitle("Histórico e notificações")
             SwitchRow("Avisar quando bloquear uma chamada", settings.notifyOnBlock, vm::setNotify)
             SwitchRow("Registrar também chamadas permitidas", settings.logAllowedCalls, vm::setLogAllowed)
+            SwitchRow("Bloquear automaticamente números rejeitados", settings.autoBlock, vm::setAutoBlock)
+            Text(
+                "Números bloqueados continuam bloqueados mesmo com a proteção desligada. Autorizar um número tira ele dos bloqueados.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             // ---------- Dados ----------
             SectionTitle("Dados")

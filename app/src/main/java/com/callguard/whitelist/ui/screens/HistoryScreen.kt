@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +62,7 @@ fun reasonLabel(reason: String): String = when (runCatching { DecisionReason.val
     DecisionReason.LOOKUP_FAILED_ALLOWED -> "Falha na consulta — permitida pela política de segurança"
     DecisionReason.LOOKUP_FAILED_REJECTED -> "Falha na consulta — rejeitada pela política de segurança"
     DecisionReason.SETTINGS_UNAVAILABLE -> "Configurações indisponíveis — permitida"
+    DecisionReason.BLOCKED -> "Na lista de bloqueados"
     null -> reason
 }
 
@@ -116,8 +118,9 @@ fun HistoryScreen(showMessage: (String) -> Unit) {
                                 Column {
                                     if (row.whitelistName != null) Text(PhoneNormalizer.format(e.normalized))
                                     Text(time, style = MaterialTheme.typography.bodySmall)
+                                    if (row.blocked) Text("Na lista de bloqueados", style = MaterialTheme.typography.bodySmall, color = DangerRed)
                                     Text(
-                                        (if (e.allowed) "Permitida · " else "Bloqueada · ") + reasonLabel(e.reason),
+                                        (if (e.allowed) "Permitida · " else "Rejeitada · ") + reasonLabel(e.reason),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = tint,
                                     )
@@ -125,8 +128,22 @@ fun HistoryScreen(showMessage: (String) -> Unit) {
                             },
                             trailingContent = {
                                 if (!row.inWhitelist && e.normalized != null) {
-                                    IconButton(onClick = { adding = row }) {
-                                        Icon(Icons.Filled.PersonAdd, contentDescription = "Adicionar à whitelist")
+                                    Row {
+                                        // Botão 1: bloquear / desbloquear
+                                        IconButton(onClick = {
+                                            vm.toggleBlock(row)
+                                            showMessage(if (row.blocked) "Número desbloqueado." else "Número bloqueado.")
+                                        }) {
+                                            Icon(
+                                                if (row.blocked) Icons.Filled.LockOpen else Icons.Filled.Block,
+                                                contentDescription = if (row.blocked) "Desbloquear" else "Bloquear",
+                                                tint = if (row.blocked) MaterialTheme.colorScheme.primary else DangerRed,
+                                            )
+                                        }
+                                        // Botão 2: adicionar à whitelist
+                                        IconButton(onClick = { adding = row }) {
+                                            Icon(Icons.Filled.PersonAdd, contentDescription = "Adicionar à whitelist")
+                                        }
                                     }
                                 }
                             },
