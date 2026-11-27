@@ -30,6 +30,8 @@ data class AppSettings(
     val logAllowedCalls: Boolean = true,
     /** Ao rejeitar um número fora da whitelist, coloca ele também na lista de bloqueados. */
     val autoBlock: Boolean = true,
+    /** Não deixar as chamadas rejeitadas aparecerem no registro do app Telefone. */
+    val hideFromCallLog: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
 ) {
@@ -58,6 +60,7 @@ class SettingsRepository(context: Context) {
         val notify = booleanPreferencesKey("notify_on_block")
         val logAllowed = booleanPreferencesKey("log_allowed")
         val autoBlock = booleanPreferencesKey("auto_block")
+        val hideLog = booleanPreferencesKey("hide_from_call_log")
         val theme = stringPreferencesKey("theme_mode")
         val dynamic = booleanPreferencesKey("dynamic_color")
         val defaultsCreated = booleanPreferencesKey("default_categories_created")
@@ -76,6 +79,7 @@ class SettingsRepository(context: Context) {
                 notifyOnBlock = p[Keys.notify] ?: d.notifyOnBlock,
                 logAllowedCalls = p[Keys.logAllowed] ?: d.logAllowedCalls,
                 autoBlock = p[Keys.autoBlock] ?: d.autoBlock,
+                hideFromCallLog = p[Keys.hideLog] ?: d.hideFromCallLog,
                 themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.themeMode,
                 dynamicColor = p[Keys.dynamic] ?: d.dynamicColor,
             )
@@ -93,6 +97,7 @@ class SettingsRepository(context: Context) {
     suspend fun setNotifyOnBlock(v: Boolean) = store.edit { it[Keys.notify] = v }
     suspend fun setLogAllowed(v: Boolean) = store.edit { it[Keys.logAllowed] = v }
     suspend fun setAutoBlock(v: Boolean) = store.edit { it[Keys.autoBlock] = v }
+    suspend fun setHideFromCallLog(v: Boolean) = store.edit { it[Keys.hideLog] = v }
     suspend fun setTheme(mode: ThemeMode) = store.edit { it[Keys.theme] = mode.name }
     suspend fun setDynamicColor(v: Boolean) = store.edit { it[Keys.dynamic] = v }
 

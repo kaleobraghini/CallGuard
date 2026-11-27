@@ -56,7 +56,7 @@ class WhitelistScreeningService : CallScreeningService() {
             }
 
             if (responded.compareAndSet(false, true)) {
-                respondToCall(callDetails, buildResponse(result.decision))
+                respondToCall(callDetails, buildResponse(result.decision, settings?.hideFromCallLog ?: true))
             }
 
             // Tudo abaixo acontece DEPOIS da resposta ao Android, para não atrasar a chamada.
@@ -86,13 +86,13 @@ class WhitelistScreeningService : CallScreeningService() {
         }
     }
 
-    private fun buildResponse(decision: Decision): CallResponse {
+    private fun buildResponse(decision: Decision, hideFromLog: Boolean): CallResponse {
         val builder = CallResponse.Builder()
         if (decision == Decision.REJECT) {
             builder
                 .setDisallowCall(true)   // não deixa a chamada chegar ao usuário
                 .setRejectCall(true)     // rejeita (o chamador ouve como ocupado/recusado)
-                .setSkipCallLog(false)   // mantém no registro de chamadas do sistema como bloqueada
+                .setSkipCallLog(hideFromLog)   // ajuste: esconder ou não do registro do app Telefone
                 .setSkipNotification(true) // sem notificação de chamada perdida do sistema
         }
         return builder.build()

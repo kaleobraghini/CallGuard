@@ -213,6 +213,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     fun setNotify(v: Boolean) = launch { c.settings.setNotifyOnBlock(v) }
     fun setLogAllowed(v: Boolean) = launch { c.settings.setLogAllowed(v) }
     fun setAutoBlock(v: Boolean) = launch { c.settings.setAutoBlock(v) }
+    fun setHideFromCallLog(v: Boolean) = launch { c.settings.setHideFromCallLog(v) }
     fun setTheme(m: ThemeMode) = launch { c.settings.setTheme(m) }
     fun setDynamicColor(v: Boolean) = launch { c.settings.setDynamicColor(v) }
 

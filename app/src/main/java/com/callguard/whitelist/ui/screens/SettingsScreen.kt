@@ -256,6 +256,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, showMessage: (String) -> Unit) 
             SwitchRow("Avisar quando bloquear uma chamada", settings.notifyOnBlock, vm::setNotify)
             SwitchRow("Registrar também chamadas permitidas", settings.logAllowedCalls, vm::setLogAllowed)
             SwitchRow("Bloquear automaticamente números rejeitados", settings.autoBlock, vm::setAutoBlock)
+            SwitchRow("Esconder bloqueadas do registro do Telefone", settings.hideFromCallLog, vm::setHideFromCallLog)
             Text(
                 "Números bloqueados continuam bloqueados mesmo com a proteção desligada. Autorizar um número tira ele dos bloqueados.",
                 style = MaterialTheme.typography.bodySmall,
